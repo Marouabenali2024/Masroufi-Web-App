@@ -1,0 +1,11 @@
+{
+  "name": "Masroufi",
+  "description": "Smart Wallet Fintech application for Tunisian users to manage expenses, track budget, and get AI-powered financial insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "Fintech Dashboard",
+    "AI Financial Insights",
+    "Expense Tracking",
+    "Data Visualization"
+  ]
+}
