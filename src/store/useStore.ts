@@ -26,6 +26,8 @@ interface AppState {
   setBudgets: (budgets: Budget[]) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -37,4 +39,6 @@ export const useStore = create<AppState>((set) => ({
   setBudgets: (budgets) => set({ budgets }),
   isLoading: true,
   setIsLoading: (isLoading) => set({ isLoading }),
+  theme: 'dark',
+  toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
 }));
