@@ -33,7 +33,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       setBudgets(bgData);
       setGlobalError(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      let msg = err instanceof Error ? err.message : String(err);
+      if (msg === "Failed to fetch") {
+        msg = "The server is currently unavailable or starting up. If this persists, please ensure the backend is running.";
+      }
       setGlobalError(msg);
       console.error("Error fetching global data:", err);
     } finally {
@@ -206,16 +209,19 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   </button>
                 </div>
                 <p className="opacity-80 mt-1">{globalError}</p>
-                {globalError.includes('MONGODB_URI') && (
+                {globalError.includes('Insufficient permissions') && (
                   <div className="mt-2 space-y-1 text-xs">
-                    <p className="font-medium">To fix this connection issue:</p>
+                    <p className="font-medium">To fix this permission issue:</p>
                     <ul className="list-disc list-inside space-y-0.5 opacity-90">
-                      <li>Ensure <code className="bg-amber-500/20 px-1 rounded">MONGODB_URI</code> is in <strong>Secrets</strong> (Settings menu).</li>
-                      <li>In MongoDB Atlas, go to <strong>Network Access</strong>.</li>
-                      <li>Add IP address <strong>0.0.0.0/0</strong> (allow connections from anywhere).</li>
-                      <li>Verify your database user has <strong>readWrite</strong> permissions.</li>
-                      <li>Double-check your password in the URI (no special characters without encoding).</li>
+                      <li>Ensure your Firebase Security Rules are correctly deployed.</li>
+                      <li>Check if your user account has the required access levels.</li>
                     </ul>
+                  </div>
+                )}
+                {globalError.includes('FIREBASE_SERVICE_ACCOUNT_KEY') && (
+                  <div className="mt-2 space-y-1 text-xs">
+                    <p className="font-medium">Server Configuration Issue:</p>
+                    <p className="opacity-90">The Firebase Admin SDK is missing credentials. Please add <code className="bg-amber-500/20 px-1 rounded">FIREBASE_SERVICE_ACCOUNT_KEY</code> to Secrets.</p>
                   </div>
                 )}
               </div>
