@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { LogIn, Github, Mail, Sparkles, ShieldCheck } from 'lucide-react';
 import { auth } from '@/src/lib/firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 
 export default function Auth() {
   const [error, setError] = React.useState<string | null>(null);
@@ -10,7 +10,7 @@ export default function Auth() {
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (err) {
       setError("Failed to sign in. Please try again.");
       console.error(err);

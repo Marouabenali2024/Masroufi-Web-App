@@ -9,9 +9,32 @@ const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
+  const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  
+  if (serviceAccountVar) {
+    try {
+      // Handle potential extra quoting or escaping from environment variables
+      let cleaned = serviceAccountVar.trim();
+      if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+        cleaned = cleaned.substring(1, cleaned.length - 1).replace(/\\"/g, '"');
+      }
+      
+      const serviceAccount = JSON.parse(cleaned);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log('Firebase Admin initialized with service account from env.');
+    } catch (error) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY from env, falling back to default:', error);
+      admin.initializeApp({
+        projectId: firebaseConfig.projectId,
+      });
+    }
+  } else {
+    admin.initializeApp({
+      projectId: firebaseConfig.projectId,
+    });
+  }
 }
 
 export interface AuthRequest extends Request {

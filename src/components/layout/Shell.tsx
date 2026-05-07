@@ -33,7 +33,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       setBudgets(bgData);
       setGlobalError(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      let msg = err instanceof Error ? err.message : String(err);
+      if (msg === "Failed to fetch") {
+        msg = "The server is currently unavailable or starting up. If this persists, please ensure the backend is running.";
+      }
       setGlobalError(msg);
       console.error("Error fetching global data:", err);
     } finally {
