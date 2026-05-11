@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { LogIn, Github, Mail, Sparkles, ShieldCheck } from 'lucide-react';
+import { LogIn, Github, Mail, Sparkles, ShieldCheck, AlertCircle } from 'lucide-react';
 import { auth } from '@/src/lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -10,20 +10,41 @@ export default function Auth() {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
+    
+    // Configure provider for better popup handling
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    
     setIsLoading(true);
     setError(null);
+    setSuccessMessage(null);
+    
     try {
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      if (err.code === 'auth/operation-not-allowed') {
-        setError("Sign-in provider not enabled. Please enable 'Google' in your Firebase Authentication console.");
-      } else {
-        setError("Failed to sign in with Google. Please try again.");
+      const result = await signInWithPopup(auth, provider);
+      if (result.user) {
+        setSuccessMessage(`Welcome ${result.user.displayName || 'back'}! Redirecting...`);
+        // The app will automatically redirect via onAuthStateChanged
       }
-      console.error(err);
+    } catch (err: any) {
+      console.error('Google Sign-In Error:', err);
+      
+      // Handle specific error codes
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError("Sign-in popup was closed. Please try again.");
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError("Sign-in provider not enabled. Please enable 'Google' in your Firebase Authentication console.");
+      } else if (err.code === 'auth/popup-blocked') {
+        setError("Sign-in popup was blocked by your browser. Please allow popups and try again.");
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError("Sign-in was cancelled. Please try again.");
+      } else {
+        setError(err.message || "Failed to sign in with Google. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -31,36 +52,66 @@ export default function Auth() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!email || !password) {
       setError("Please fill in all fields.");
       return;
     }
     
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
+    setSuccessMessage(null);
     
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        if (result.user) {
+          setSuccessMessage("Account created successfully! Redirecting...");
+          // Clear form
+          setEmail('');
+          setPassword('');
+        }
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        if (result.user) {
+          setSuccessMessage("Signed in successfully! Redirecting...");
+        }
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Email Auth Error:', err);
+      
+      // Handle specific error codes
       if (err.code === 'auth/operation-not-allowed') {
-        setError("Sign-in provider not enabled. Please enable 'Email/Password' in your Firebase Authentication console.");
-      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError("Invalid email or password.");
+        setError("Email/Password sign-in is not enabled. Please enable it in your Firebase Authentication console.");
+      } else if (err.code === 'auth/user-not-found') {
+        setError("No account found with this email address.");
+      } else if (err.code === 'auth/wrong-password') {
+        setError("Incorrect password. Please try again.");
+      } else if (err.code === 'auth/invalid-email') {
+        setError("Please enter a valid email address.");
       } else if (err.code === 'auth/email-already-in-use') {
-        setError("An account already exists with this email.");
+        setError("An account already exists with this email. Please sign in instead.");
       } else if (err.code === 'auth/weak-password') {
         setError("Password should be at least 6 characters.");
+      } else if (err.code === 'auth/too-many-requests') {
+        setError("Too many failed login attempts. Please try again later.");
       } else {
-        setError("Authentication failed. Please check your credentials.");
+        setError(err.message || "Authentication failed. Please check your credentials.");
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError(null);
+    setSuccessMessage(null);
   };
 
   return (
@@ -126,7 +177,8 @@ export default function Auth() {
             {/* Visual indicator for mode */}
             <div className="mt-4 flex gap-2 justify-center lg:justify-start">
               <button
-                onClick={() => setIsSignUp(false)}
+                onClick={() => toggleMode()}
+                disabled={isSignUp}
                 className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                   !isSignUp 
                     ? 'bg-primary text-primary-foreground' 
@@ -136,7 +188,8 @@ export default function Auth() {
                 Sign In
               </button>
               <button
-                onClick={() => setIsSignUp(true)}
+                onClick={() => toggleMode()}
+                disabled={!isSignUp}
                 className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                   isSignUp 
                     ? 'bg-primary text-primary-foreground' 
@@ -152,9 +205,13 @@ export default function Auth() {
             <button 
               onClick={handleGoogleSignIn}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 py-4 border-2 border-slate-800 rounded-2xl hover:bg-slate-900 transition-all font-bold text-slate-300 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 py-4 border-2 border-slate-800 rounded-2xl hover:bg-slate-900 transition-all font-bold text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-slate-300 border-t-primary rounded-full animate-spin" />
+              ) : (
+                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+              )}
               <span>{isSignUp ? 'Sign up with Google' : 'Continue with Google'}</span>
             </button>
           </div>
@@ -177,6 +234,7 @@ export default function Auth() {
                   className="w-full pl-12 pr-4 py-4 bg-slate-900/50 border border-slate-800 rounded-2xl outline-none focus:border-primary transition-all text-white placeholder:text-slate-700"
                   placeholder="name@company.com"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -190,6 +248,7 @@ export default function Auth() {
                 placeholder="••••••••"
                 required
                 minLength={6}
+                disabled={isLoading}
               />
             </div>
             
@@ -197,9 +256,21 @@ export default function Auth() {
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="text-rose-500 text-sm font-medium bg-rose-500/10 p-3 rounded-xl border border-rose-500/20"
+                className="text-rose-500 text-sm font-medium bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 flex gap-2 items-start"
               >
-                {error}
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+
+            {successMessage && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="text-green-500 text-sm font-medium bg-green-500/10 p-3 rounded-xl border border-green-500/20 flex gap-2 items-start"
+              >
+                <div className="w-4 h-4 rounded-full bg-green-500 shrink-0 mt-0.5" />
+                <span>{successMessage}</span>
               </motion.div>
             )}
 
@@ -216,10 +287,7 @@ export default function Auth() {
           <p className="mt-8 text-center text-slate-600 text-sm">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"} {' '}
             <button 
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError(null); // Clear any errors when switching modes
-              }}
+              onClick={() => toggleMode()}
               className="text-primary font-bold hover:underline bg-transparent border-none p-0 cursor-pointer"
             >
               {isSignUp ? 'Sign in' : 'Sign up for free'}
