@@ -39,6 +39,9 @@ if (!admin.apps.length) {
 
 export default admin;
 
+// Export Firestore instance with the correct databaseId
+export const db = admin.firestore(firebaseConfig.firestoreDatabaseId || undefined);
+
 export interface AuthRequest extends Request {
   user?: admin.auth.DecodedIdToken;
 }
