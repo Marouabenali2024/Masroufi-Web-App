@@ -1,10 +1,12 @@
+"use client";
+
 import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Sparkles, ShieldCheck } from 'lucide-react';
 import { auth } from '@/src/lib/firebase';
 import { 
-  signInWithRedirect, // تم التغيير هنا
-  getRedirectResult, // ضروري للحصول على النتيجة بعد العودة
+  signInWithRedirect, 
+  getRedirectResult, 
   GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword 
@@ -17,22 +19,26 @@ export default function Auth() {
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // معالجة نتيجة الـ Redirect عند عودة الصفحة من Google
+  // 1. معالجة نتيجة الـ Redirect عند العودة من Google
   useEffect(() => {
-    const checkRedirect = async () => {
+    const handleRedirectResult = async () => {
       try {
         const result = await getRedirectResult(auth);
         if (result) {
-          console.log("User signed in:", result.user);
+          console.log("تم تسجيل الدخول بنجاح:", result.user);
         }
       } catch (err: any) {
-        console.error("Redirect Result Error:", err);
-        // لا تظهري خطأ هنا إلا إذا كان حرجاً، لأن الصفحة تعمل Re-render كثيراً
+        console.error("خطأ في الـ Redirect:", err);
+        // نظراً لأن الخطأ قد يظهر بسبب الـ Refresh، نظهر الأخطاء الحقيقية فقط
+        if (err.code !== 'auth/popup-closed-by-user') {
+           setError("فشل استكمال تسجيل الدخول عبر Google.");
+        }
       }
     };
-    checkRedirect();
+    handleRedirectResult();
   }, []);
 
+  // 2. دالة تسجيل الدخول بـ Google باستخدام Redirect
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -40,23 +46,19 @@ export default function Auth() {
     setIsLoading(true);
     setError(null);
     try {
-      // استخدام Redirect يحل مشكلة الحظر في المتصفحات
       await signInWithRedirect(auth, provider);
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/operation-not-allowed') {
-        setError("Sign-in provider not enabled in Firebase console.");
-      } else {
-        setError("Failed to connect to Google. Please try again.");
-      }
+      setError("تعذر الاتصال بـ Google. يرجى المحاولة مرة أخرى.");
       setIsLoading(false);
     }
   };
 
+  // 3. دالة تسجيل الدخول بالبريد الإلكتروني
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please fill in all fields.");
+      setError("يرجى ملء جميع الخانات.");
       return;
     }
     
@@ -72,11 +74,11 @@ export default function Auth() {
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError("Invalid email or password.");
+        setError("البريد الإلكتروني أو كلمة السر غير صحيحة.");
       } else if (err.code === 'auth/email-already-in-use') {
-        setError("An account already exists with this email.");
+        setError("هذا الحساب موجود بالفعل.");
       } else {
-        setError("Authentication failed.");
+        setError("فشل تسجيل الدخول. يرجى التثبت من المعطيات.");
       }
     } finally {
       setIsLoading(false);
@@ -85,7 +87,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      {/* Visual Side */}
+      {/* الجانب البصري */}
       <div className="hidden lg:flex fintech-gradient flex-col justify-between p-12 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-accent/20 blur-[100px] rounded-full" />
@@ -124,7 +126,7 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* Form Side */}
+      {/* جانب النموذج */}
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-10 text-center lg:text-left">
