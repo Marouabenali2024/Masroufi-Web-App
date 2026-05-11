@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "motion/react";
-import { LogIn, Github, Mail, Sparkles, ShieldCheck } from "lucide-react";
+import { Mail, Sparkles, ShieldCheck } from "lucide-react";
 import { auth } from "@/src/lib/firebase";
 import {
-  signInWithRedirect, // التغيير هنا
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -16,24 +17,46 @@ export default function Auth() {
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
 
-const handleGoogleSignIn = async () => {
+  // 1. معالجة عودة المستخدم من Google بعد الـ Redirect
+  useEffect(() => {
+    const checkGoogleResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          // تم تسجيل الدخول بنجاح
+          console.log("تم الدخول بنجاح:", result.user);
+          // هنا يمكنك إضافة توجيه لصفحة الـ Dashboard إذا أردتِ
+          // window.location.href = "/dashboard"; 
+        }
+      } catch (err: any) {
+        console.error("خطأ في العودة من Google:", err);
+        setError("حدث خطأ أثناء الاتصال بحساب Google، حاول مجدداً.");
+      }
+    };
+    checkGoogleResult();
+  }, []);
+
+  // 2. دالة تسجيل الدخول بـ Google (Redirect)
+  const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+
     setIsLoading(true);
     setError(null);
     try {
-      // الـ Redirect هو الحل الوحيد المستقر للنطاقات المجانية مثل render.com
       await signInWithRedirect(auth, provider);
     } catch (err: any) {
       console.error(err);
-      setError("تعذر الاتصال بـ Google. يرجى المحاولة مرة أخرى.");
+      setError("تعذر فتح صفحة Google. يرجى المحاولة مرة أخرى.");
       setIsLoading(false);
     }
   };
 
+  // 3. دالة تسجيل الدخول بالبريد الإلكتروني
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please fill in all fields.");
+      setError("يرجى ملء جميع الحقول.");
       return;
     }
 
@@ -49,20 +72,13 @@ const handleGoogleSignIn = async () => {
     } catch (err: any) {
       console.error(err);
       if (err.code === "auth/operation-not-allowed") {
-        setError(
-          "Sign-in provider not enabled. Please enable 'Email/Password' in your Firebase Authentication console.",
-        );
-      } else if (
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password"
-      ) {
-        setError("Invalid email or password.");
+        setError("خدمة التسجيل غير مفعلة في Firebase Console.");
+      } else if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+        setError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
       } else if (err.code === "auth/email-already-in-use") {
-        setError("An account already exists with this email.");
-      } else if (err.code === "auth/weak-password") {
-        setError("Password should be at least 6 characters.");
+        setError("هذا البريد الإلكتروني مستخدم بالفعل.");
       } else {
-        setError("Authentication failed. Please check your credentials.");
+        setError("حدث خطأ في المصادقة. يرجى التحقق من البيانات.");
       }
     } finally {
       setIsLoading(false);
@@ -70,8 +86,8 @@ const handleGoogleSignIn = async () => {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Visual Side */}
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      {/* القسم الجمالي (Visual Side) */}
       <div className="hidden lg:flex fintech-gradient flex-col justify-between p-12 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-accent/20 blur-[100px] rounded-full" />
@@ -96,8 +112,7 @@ const handleGoogleSignIn = async () => {
             .
           </motion.h1>
           <p className="mt-6 text-emerald-100 text-lg max-w-sm">
-            Join thousands of Tunisians using Masroufi to track expenses and
-            save for the future.
+            Join thousands of Tunisians using Masroufi to track expenses and save for the future.
           </p>
         </div>
 
@@ -105,21 +120,17 @@ const handleGoogleSignIn = async () => {
           <div className="flex flex-col gap-2">
             <ShieldCheck className="text-accent" />
             <p className="font-bold">Secure Banking</p>
-            <p className="text-sm text-emerald-100">
-              Bank-grade security protocols for your data.
-            </p>
+            <p className="text-sm text-emerald-100">Bank-grade security protocols for your data.</p>
           </div>
           <div className="flex flex-col gap-2">
             <Sparkles className="text-accent" />
             <p className="font-bold">AI Insights</p>
-            <p className="text-sm text-emerald-100">
-              Smart tips tailored to your spending habits.
-            </p>
+            <p className="text-sm text-emerald-100">Smart tips tailored to your spending habits.</p>
           </div>
         </div>
       </div>
 
-      {/* Form Side */}
+      {/* قسم النموذج (Form Side) */}
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-10 text-center lg:text-left">
@@ -127,9 +138,7 @@ const handleGoogleSignIn = async () => {
               {isSignUp ? "Create Account" : "Welcome Back"}
             </h2>
             <p className="text-slate-500 mt-2">
-              {isSignUp
-                ? "Join Masroufi to start managing your budget"
-                : "Sign in to manage your budget"}
+              {isSignUp ? "Join Masroufi to start managing your budget" : "Sign in to manage your budget"}
             </p>
           </div>
 
@@ -139,22 +148,14 @@ const handleGoogleSignIn = async () => {
               disabled={isLoading}
               className="w-full flex items-center justify-center gap-3 py-4 border-2 border-slate-800 rounded-2xl hover:bg-slate-900 transition-all font-bold text-slate-300 disabled:opacity-50"
             >
-              <img
-                src="https://www.google.com/favicon.ico"
-                className="w-5 h-5"
-                alt="Google"
-              />
-              <span>
-                {isSignUp ? "Sign up with Google" : "Continue with Google"}
-              </span>
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+              <span>{isSignUp ? "Sign up with Google" : "Continue with Google"}</span>
             </button>
           </div>
 
           <div className="my-8 flex items-center gap-4 text-slate-800">
             <div className="h-px flex-1 bg-slate-800" />
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
-              OR
-            </span>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-600">OR</span>
             <div className="h-px flex-1 bg-slate-800" />
           </div>
 
@@ -164,10 +165,7 @@ const handleGoogleSignIn = async () => {
                 Email Address
               </label>
               <div className="relative">
-                <Mail
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                  size={18}
-                />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                 <input
                   type="email"
                   value={email}
@@ -206,7 +204,7 @@ const handleGoogleSignIn = async () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-primary text-black font-black rounded-2xl shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 bg-primary text-black font-black rounded-2xl shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {isLoading && (
                 <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
