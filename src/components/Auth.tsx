@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { LogIn, Github, Mail, Sparkles, ShieldCheck } from "lucide-react";
 import { auth } from "@/src/lib/firebase";
 import {
-  signInWithPopup,
+  signInWithRedirect, // التغيير هنا
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -16,22 +16,16 @@ export default function Auth() {
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleGoogleSignIn = async () => {
+const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     setIsLoading(true);
     setError(null);
     try {
-      await signInWithPopup(auth, provider);
+      // الـ Redirect هو الحل الوحيد المستقر للنطاقات المجانية مثل render.com
+      await signInWithRedirect(auth, provider);
     } catch (err: any) {
-      if (err.code === "auth/operation-not-allowed") {
-        setError(
-          "Sign-in provider not enabled. Please enable 'Google' in your Firebase Authentication console.",
-        );
-      } else {
-        setError("Failed to sign in with Google. Please try again.");
-      }
       console.error(err);
-    } finally {
+      setError("تعذر الاتصال بـ Google. يرجى المحاولة مرة أخرى.");
       setIsLoading(false);
     }
   };
