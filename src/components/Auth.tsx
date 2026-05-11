@@ -1,16 +1,8 @@
-"use client";
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import { Mail, Sparkles, ShieldCheck } from 'lucide-react';
+import { LogIn, Github, Mail, Sparkles, ShieldCheck } from 'lucide-react';
 import { auth } from '@/src/lib/firebase';
-import { 
-  signInWithRedirect, 
-  getRedirectResult, 
-  GoogleAuthProvider, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword 
-} from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function Auth() {
   const [error, setError] = React.useState<string | null>(null);
@@ -19,46 +11,28 @@ export default function Auth() {
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // 1. معالجة نتيجة الـ Redirect عند العودة من Google
-  useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          console.log("تم تسجيل الدخول بنجاح:", result.user);
-        }
-      } catch (err: any) {
-        console.error("خطأ في الـ Redirect:", err);
-        // نظراً لأن الخطأ قد يظهر بسبب الـ Refresh، نظهر الأخطاء الحقيقية فقط
-        if (err.code !== 'auth/popup-closed-by-user') {
-           setError("فشل استكمال تسجيل الدخول عبر Google.");
-        }
-      }
-    };
-    handleRedirectResult();
-  }, []);
-
-  // 2. دالة تسجيل الدخول بـ Google باستخدام Redirect
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    
     setIsLoading(true);
     setError(null);
     try {
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (err: any) {
+      if (err.code === 'auth/operation-not-allowed') {
+        setError("Sign-in provider not enabled. Please enable 'Google' in your Firebase Authentication console.");
+      } else {
+        setError("Failed to sign in with Google. Please try again.");
+      }
       console.error(err);
-      setError("تعذر الاتصال بـ Google. يرجى المحاولة مرة أخرى.");
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // 3. دالة تسجيل الدخول بالبريد الإلكتروني
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("يرجى ملء جميع الخانات.");
+      setError("Please fill in all fields.");
       return;
     }
     
@@ -73,12 +47,16 @@ export default function Auth() {
       }
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError("البريد الإلكتروني أو كلمة السر غير صحيحة.");
+      if (err.code === 'auth/operation-not-allowed') {
+        setError("Sign-in provider not enabled. Please enable 'Email/Password' in your Firebase Authentication console.");
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError("Invalid email or password.");
       } else if (err.code === 'auth/email-already-in-use') {
-        setError("هذا الحساب موجود بالفعل.");
+        setError("An account already exists with this email.");
+      } else if (err.code === 'auth/weak-password') {
+        setError("Password should be at least 6 characters.");
       } else {
-        setError("فشل تسجيل الدخول. يرجى التثبت من المعطيات.");
+        setError("Authentication failed. Please check your credentials.");
       }
     } finally {
       setIsLoading(false);
@@ -86,8 +64,8 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      {/* الجانب البصري */}
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* Visual Side */}
       <div className="hidden lg:flex fintech-gradient flex-col justify-between p-12 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-accent/20 blur-[100px] rounded-full" />
@@ -126,13 +104,49 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* جانب النموذج */}
+      {/* Form Side */}
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
-          <div className="mb-10 text-center lg:text-left">
+          <motion.div 
+            key={isSignUp ? 'signup' : 'signin'}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mb-10 text-center lg:text-left"
+          >
+            <div className="inline-flex items-center gap-2 mb-4 lg:hidden">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-primary-foreground font-black text-sm">M</span>
+              </div>
+              <span className="text-lg font-bold">Masroufi</span>
+            </div>
             <h2 className="text-3xl font-bold text-white">{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
             <p className="text-slate-500 mt-2">{isSignUp ? 'Join Masroufi to start managing your budget' : 'Sign in to manage your budget'}</p>
-          </div>
+            
+            {/* Visual indicator for mode */}
+            <div className="mt-4 flex gap-2 justify-center lg:justify-start">
+              <button
+                onClick={() => setIsSignUp(false)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                  !isSignUp 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setIsSignUp(true)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                  isSignUp 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
+          </motion.div>
 
           <div className="space-y-4">
             <button 
@@ -141,7 +155,7 @@ export default function Auth() {
               className="w-full flex items-center justify-center gap-3 py-4 border-2 border-slate-800 rounded-2xl hover:bg-slate-900 transition-all font-bold text-slate-300 disabled:opacity-50"
             >
               <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-              <span>{isLoading ? 'Connecting...' : (isSignUp ? 'Sign up with Google' : 'Continue with Google')}</span>
+              <span>{isSignUp ? 'Sign up with Google' : 'Continue with Google'}</span>
             </button>
           </div>
 
@@ -192,7 +206,7 @@ export default function Auth() {
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-primary text-black font-black rounded-2xl shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-primary text-black font-black rounded-2xl shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading && <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />}
               {isSignUp ? 'Create Free Account' : 'Sign In with Email'}
@@ -202,7 +216,10 @@ export default function Auth() {
           <p className="mt-8 text-center text-slate-600 text-sm">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"} {' '}
             <button 
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError(null); // Clear any errors when switching modes
+              }}
               className="text-primary font-bold hover:underline bg-transparent border-none p-0 cursor-pointer"
             >
               {isSignUp ? 'Sign in' : 'Sign up for free'}
@@ -211,5 +228,6 @@ export default function Auth() {
         </div>
       </div>
     </div>
+
   );
 }

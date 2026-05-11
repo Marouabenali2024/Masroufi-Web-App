@@ -19,31 +19,33 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function incoming() {
-      return request.resource.data;
-    }
-
     // User profile rules
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && incoming().keys().hasAll(['uid', 'email']) && incoming().uid == userId;
-      allow update: if isOwner(userId) && incoming().diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'currency']);
+      allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['uid', 'email', 'createdAt']) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'currency']);
     }
 
     // Transaction rules
     match /users/{userId}/transactions/{transactionId} {
       allow list, get: if isOwner(userId);
-      allow create: if isOwner(userId) && incoming().keys().hasAll(['amount', 'type', 'category', 'date', 'userId']) && incoming().userId == userId;
-      allow update: if isOwner(userId) && incoming().userId == userId;
+      allow create: if isOwner(userId) && isValidId(transactionId);
+      allow update: if isOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId);
+    }
+
+    // Category rules
+    match /users/{userId}/categories/{categoryId} {
+      allow list, get: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
     }
 
     // Budget rules
     match /users/{userId}/budgets/{budgetId} {
       allow list, get: if isOwner(userId);
-      allow create: if isOwner(userId) && incoming().keys().hasAll(['category', 'amount', 'month', 'userId']) && incoming().userId == userId;
-      allow update: if isOwner(userId) && incoming().userId == userId;
-      allow delete: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
     }
   }
 }

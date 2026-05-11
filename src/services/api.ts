@@ -1,16 +1,4 @@
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs, 
-  addDoc, 
-  deleteDoc, 
-  doc,
-  serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 
 const API_BASE = '/api';
 
@@ -50,90 +38,41 @@ async function fetchWithAuth(url: string, options: RequestInit = {}, retryCount 
 }
 
 export const api = {
-  async getTransactions(userId: string): Promise<any[]> {
-    try {
-      const q = query(
-        collection(db, 'users', userId, 'transactions'),
-        orderBy('date', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-        date: d.data().date instanceof Timestamp ? d.data().date.toDate().toISOString() : d.data().date,
-      })) as any[];
-    } catch (err: any) {
-      console.error("Firestore getTransactions error:", err);
-      throw err;
-    }
+  async getTransactions(userId: string) {
+    return fetchWithAuth(`${API_BASE}/transactions?userId=${userId}`);
   },
 
-  async createTransaction(data: any): Promise<any> {
-    try {
-      const { userId, ...txData } = data;
-      const docRef = await addDoc(collection(db, 'users', userId, 'transactions'), {
-        ...txData,
-        userId,
-        date: txData.date || new Date().toISOString(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      return { id: docRef.id, ...txData, userId } as any;
-    } catch (err: any) {
-      console.error("Firestore createTransaction error:", err);
-      throw err;
-    }
+  async createTransaction(data: any) {
+    return fetchWithAuth(`${API_BASE}/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
   },
 
-  async getBudgets(userId: string, month?: string): Promise<any[]> {
-    try {
-      let q = query(collection(db, 'users', userId, 'budgets'));
-      if (month) {
-        q = query(q, where('month', '==', month));
-      }
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      })) as any[];
-    } catch (err: any) {
-      console.error("Firestore getBudgets error:", err);
-      throw err;
-    }
+  async getBudgets(userId: string, month?: string) {
+    let url = `${API_BASE}/budgets?userId=${userId}`;
+    if (month) url += `&month=${month}`;
+    return fetchWithAuth(url);
   },
 
-  async createBudget(data: any): Promise<any> {
-    try {
-      const { userId, ...bgData } = data;
-      const docRef = await addDoc(collection(db, 'users', userId, 'budgets'), {
-        ...bgData,
-        userId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      return { id: docRef.id, ...bgData, userId } as any;
-    } catch (err: any) {
-      console.error("Firestore createBudget error:", err);
-      throw err;
-    }
+  async createBudget(data: any) {
+    return fetchWithAuth(`${API_BASE}/budgets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
   },
 
   async deleteBudget(id: string) {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("Unauthorized");
-      await deleteDoc(doc(db, 'users', user.uid, 'budgets', id));
-      return { success: true };
-    } catch (err: any) {
-      console.error("Firestore deleteBudget error:", err);
-      throw err;
-    }
+    return fetchWithAuth(`${API_BASE}/budgets/${id}`, {
+      method: 'DELETE',
+    });
   },
 
   async analyzeSpending(transactions: any[]) {
     return fetchWithAuth(`${API_BASE}/ai/analyze-spending`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transactions }),
     });
   }

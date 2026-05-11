@@ -10,3 +10,7 @@ services:
         value: production
       - key: GEMINI_API_KEY
         sync: false # You will need to add this manually in the Render dashboard
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false # Critical: Add your Firebase service account JSON here
+      - key: MONGODB_URI
+        sync: false # Optional: Add if using MongoDB

@@ -1,6 +1,8 @@
 import type { Response } from 'express';
-import admin, { db } from '../middleware/auth.ts';
+import admin from '../middleware/auth.ts';
 import type { AuthRequest } from '../middleware/auth.ts';
+
+const db = admin.firestore();
 
 export const budgetController = {
   async getAll(req: AuthRequest, res: Response) {
