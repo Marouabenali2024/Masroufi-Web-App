@@ -1,11 +1,10 @@
-"use client";
-
 import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Sparkles, ShieldCheck } from 'lucide-react';
 import { auth } from '@/src/lib/firebase';
 import { 
-  signInWithPopup, 
+  signInWithRedirect, // تم التغيير هنا
+  getRedirectResult, // ضروري للحصول على النتيجة بعد العودة
   GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword 
@@ -18,7 +17,22 @@ export default function Auth() {
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // Use Popup for better compatibility with the AI Studio preview environment
+  // معالجة نتيجة الـ Redirect عند عودة الصفحة من Google
+  useEffect(() => {
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log("User signed in:", result.user);
+        }
+      } catch (err: any) {
+        console.error("Redirect Result Error:", err);
+        // لا تظهري خطأ هنا إلا إذا كان حرجاً، لأن الصفحة تعمل Re-render كثيراً
+      }
+    };
+    checkRedirect();
+  }, []);
+
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -26,24 +40,19 @@ export default function Auth() {
     setIsLoading(true);
     setError(null);
     try {
-      await signInWithPopup(auth, provider);
+      // استخدام Redirect يحل مشكلة الحظر في المتصفحات
+      await signInWithRedirect(auth, provider);
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
-        setError("Sign-in provider not enabled. Please enable 'Google' in your Firebase Authentication console.");
-      } else if (err.code === 'auth/popup-blocked') {
-        setError("Popup blocked. Please allow popups or open the app in a new tab.");
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError("This domain is not authorized. Please add it to 'Authorized domains' in Firebase Auth settings.");
+        setError("Sign-in provider not enabled in Firebase console.");
       } else {
         setError("Failed to connect to Google. Please try again.");
       }
-    } finally {
       setIsLoading(false);
     }
   };
 
-  // 3. دالة تسجيل الدخول بالبريد الإلكتروني
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -62,14 +71,12 @@ export default function Auth() {
       }
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/operation-not-allowed') {
-        setError("Sign-in provider not enabled. Please check Firebase console.");
-      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError("Invalid email or password.");
       } else if (err.code === 'auth/email-already-in-use') {
         setError("An account already exists with this email.");
       } else {
-        setError("Authentication failed. Please check your credentials.");
+        setError("Authentication failed.");
       }
     } finally {
       setIsLoading(false);
@@ -132,7 +139,7 @@ export default function Auth() {
               className="w-full flex items-center justify-center gap-3 py-4 border-2 border-slate-800 rounded-2xl hover:bg-slate-900 transition-all font-bold text-slate-300 disabled:opacity-50"
             >
               <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-              <span>{isSignUp ? 'Sign up with Google' : 'Continue with Google'}</span>
+              <span>{isLoading ? 'Connecting...' : (isSignUp ? 'Sign up with Google' : 'Continue with Google')}</span>
             </button>
           </div>
 
@@ -183,7 +190,7 @@ export default function Auth() {
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-primary text-black font-black rounded-2xl shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 bg-primary text-black font-black rounded-2xl shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {isLoading && <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />}
               {isSignUp ? 'Create Free Account' : 'Sign In with Email'}
