@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import fs from 'fs';
 import path from 'path';
 
@@ -17,6 +18,8 @@ if (!admin.apps.length) {
       let cleaned = serviceAccountVar.trim();
       if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
         cleaned = cleaned.substring(1, cleaned.length - 1).replace(/\\"/g, '"');
+      } else if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+        cleaned = cleaned.substring(1, cleaned.length - 1);
       }
       
       const serviceAccount = JSON.parse(cleaned);
@@ -40,7 +43,7 @@ if (!admin.apps.length) {
 export default admin;
 
 // Export Firestore instance with the correct databaseId
-export const db = admin.firestore(firebaseConfig.firestoreDatabaseId || undefined);
+export const db = getFirestore(admin.app(), firebaseConfig.firestoreDatabaseId || undefined);
 
 export interface AuthRequest extends Request {
   user?: admin.auth.DecodedIdToken;
