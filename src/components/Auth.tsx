@@ -1,8 +1,15 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, Github, Mail, Sparkles, ShieldCheck } from 'lucide-react';
+import { Mail, Sparkles, ShieldCheck } from 'lucide-react';
 import { auth } from '@/src/lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword 
+} from 'firebase/auth';
 
 export default function Auth() {
   const [error, setError] = React.useState<string | null>(null);
@@ -11,24 +18,32 @@ export default function Auth() {
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // Use Popup for better compatibility with the AI Studio preview environment
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
     setIsLoading(true);
     setError(null);
     try {
       await signInWithPopup(auth, provider);
     } catch (err: any) {
+      console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
         setError("Sign-in provider not enabled. Please enable 'Google' in your Firebase Authentication console.");
+      } else if (err.code === 'auth/popup-blocked') {
+        setError("Popup blocked. Please allow popups or open the app in a new tab.");
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError("This domain is not authorized. Please add it to 'Authorized domains' in Firebase Auth settings.");
       } else {
-        setError("Failed to sign in with Google. Please try again.");
+        setError("Failed to connect to Google. Please try again.");
       }
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 3. دالة تسجيل الدخول بالبريد الإلكتروني
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -48,13 +63,11 @@ export default function Auth() {
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
-        setError("Sign-in provider not enabled. Please enable 'Email/Password' in your Firebase Authentication console.");
+        setError("Sign-in provider not enabled. Please check Firebase console.");
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError("Invalid email or password.");
       } else if (err.code === 'auth/email-already-in-use') {
         setError("An account already exists with this email.");
-      } else if (err.code === 'auth/weak-password') {
-        setError("Password should be at least 6 characters.");
       } else {
         setError("Authentication failed. Please check your credentials.");
       }
@@ -64,7 +77,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       {/* Visual Side */}
       <div className="hidden lg:flex fintech-gradient flex-col justify-between p-12 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[120px] rounded-full" />
@@ -189,6 +202,5 @@ export default function Auth() {
         </div>
       </div>
     </div>
-
   );
 }
